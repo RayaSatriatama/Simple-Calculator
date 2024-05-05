@@ -15,15 +15,111 @@
         <div class="display">
           <input type="text" name="display" class="display-calculation" value="<?php echo isset($_POST['display']) ? htmlspecialchars($_POST['display']) : '0'; ?>">
           <?php
+          // Fungsi untuk mengevaluasi ekspresi matematika yang diberikan
+          function evaluateExpression($expression)
+          {
+            // Menghapus spasi yang tidak perlu dari ekspresi
+            $expression = str_replace(' ', '', $expression);
+
+            // Inisialisasi array untuk menyimpan angka dan operator
+            $numbers = [];
+            $operators = [];
+
+            // Mendapatkan panjang ekspresi
+            $length = strlen($expression);
+            $i = 0;
+
+            // Iterasi melalui ekspresi untuk mengevaluasi setiap karakter
+            while ($i < $length) {
+              // Jika karakter adalah angka atau karakter khusus seperti titik atau eksponen
+              if (is_numeric($expression[$i]) || $expression[$i] === '.' || $expression[$i] === 'e' || $expression[$i] === 'E') {
+                $num = '';
+                $hasExponentSign = false;
+
+                // Membaca angka dan menggabungkan karakter untuk membentuk angka tunggal (contoh: 1-8e => 0.0000001)
+                while ($i < $length && (is_numeric($expression[$i]) || $expression[$i] === '.' || $expression[$i] === 'e' || $expression[$i] === 'E' ||
+                  ($hasExponentSign && ($expression[$i] === '+' || $expression[$i] === '-')))) {
+                  if ($expression[$i] === 'e' || $expression[$i] === 'E') {
+                    $hasExponentSign = true;
+                  } else if ($hasExponentSign && (is_numeric($expression[$i]) || $expression[$i] === '+' || $expression[$i] === '-')) {
+                    $hasExponentSign = false;
+                  }
+                  $num .= $expression[$i++];
+                }
+                // Menambahkan angka ke dalam array setelah diubah menjadi float
+                array_push($numbers, floatval($num));
+                $i--;
+              }
+              // Jika karakter adalah operator
+              else if (in_array($expression[$i], ['+', '-', '*', '/'])) {
+                // Menangani operator berdasarkan prioritasnya
+                while (!empty($operators) && hasPrecedence($expression[$i], end($operators))) {
+                  performCalculation($numbers, array_pop($operators));
+                }
+                array_push($operators, $expression[$i]);
+              }
+              $i++;
+            }
+
+            // Menangani sisa operator dan operand yang tersisa
+            while (!empty($operators)) {
+              performCalculation($numbers, array_pop($operators));
+            }
+
+            // Mengembalikan hasil akhir dari ekspresi matematika
+            return array_pop($numbers);
+          }
+
+          // Fungsi untuk mengecek tingkat presedensi operator matematika
+          function hasPrecedence($op1, $op2)
+          {
+            if (in_array($op2, ['+', '-']) && in_array($op1, ['*', '/'])) {
+              return false;
+            }
+            return true;
+          }
+
+          // Fungsi untuk melakukan perhitungan sesuai dengan operator
+          function performCalculation(&$numbers, $operator)
+          {
+            if (count($numbers) < 2) {
+              throw new RuntimeException("Insufficient values in the expression.");
+            }
+            $right = array_pop($numbers);
+            $left = array_pop($numbers);
+
+            switch ($operator) {
+              case '+':
+                array_push($numbers, $left + $right);
+                break;
+              case '-':
+                array_push($numbers, $left - $right);
+                break;
+              case '*':
+                array_push($numbers, $left * $right);
+                break;
+              case '/':
+                if ($right == 0) throw new RuntimeException("Division by zero.");
+                array_push($numbers, $left / $right);
+                break;
+            }
+          }
+
           if (isset($_POST['submit'])) {
             if (isset($_POST['display'])) {
-              $calculation = $_POST['display'];
-              if (strpos($calculation, '/0') !== false) {
+              // Ekspresi yang akan dievaluasi
+              $expression = $_POST['display'];
+
+              // Mengecek apakah ekspresi mengandung pembagian dengan nol
+              if (strpos($expression, '/0') !== false) {
                 $result = "Undefined";
               } else {
-                $result = eval('return ' . $calculation . ';');
+                // Menghitung hasil dari ekspresi matematika
+                $result = evaluateExpression($expression);
               }
-              echo "<input id=\"result\" class=\"display-calculation\" value=\"Result: $result\" readonly>";
+
+              // Menampilkan hasil perhitungan
+              echo "<input id='result' class='display-calculation' value='Result: $result' readonly>";
             } else {
               echo "<p>No calculation found!</p>";
             }
@@ -59,7 +155,7 @@
           <input type="button" value="00" onclick="appendToDisplay('00')">
           <input type="button" value="0" onclick="appendToDisplay('0')">
           <input type="button" value="." onclick="appendToDisplay('.')">
-          <input type="submit" value="=" name="submit" class="operator" onclick="calculate()">
+          <input type="submit" value="=" name="submit" class="operator" onclick="calculateValidation()">
         </div>
       </form>
     </div>
@@ -68,6 +164,7 @@
     </div>
   </div>
   <script>
+    // Event listener untuk membatasi karakter-karakter yang dapat dimasukkan pada tampilan kalkulator
     document.querySelector(".display-calculation").addEventListener('input', function() {
       var display = this;
       var inputValue = display.value;
@@ -82,58 +179,72 @@
       display.value = inputValue;
     });
 
+    // Fungsi untuk menambah karakter pada tampilan kalkulator
     function appendToDisplay(value) {
       var display = document.querySelector(".display-calculation");
       var firstChar = display.value.slice(0);
       var lastChar = display.value.slice(-1);
 
+      // Memeriksa apakah karakter yang dimasukkan valid tanpa ada double operator
       if ((value === '+' || value === '-' || value === '*' || value === '/' || value === '.') &&
         (lastChar === '+' || lastChar === '-' || lastChar === '*' || lastChar === '/' || lastChar === '.')) {
         return;
       }
 
+      // Pencegahan double nol pada nilai nol
       if ((value === '0' || value === '00') && firstChar === '0') {
         return;
       }
 
+      // Memeriksa apakah karakter pertama adalah 0 dan karakter selanjutnya bukan operator
       if ((value !== '0' && value != '+' && value !== '-' && value !== '*' && value !== '/' && value !== '.') && firstChar === '0') {
         display.value = value;
         return;
       }
 
+      // Memeriksa apakah titik desimal valid
       if (value === '.' && display.value === '') {
         return;
       }
 
+      // Pencegahan double koma
       if (value === '.' && /\d+\.\d*$/.test(display.value)) {
         return;
       }
 
+      // Mengoptimalkan tampilan dengan menghilangkan nol yang tidak perlu
       var optimizedValue = display.value.replace(/(\D|^)0+(\d+)/, '$1$2');
 
       display.value += value;
     }
 
+    // Fungsi untuk membersihkan tampilan kalkulator
     function clearDisplay() {
       document.querySelector(".display-calculation").value = '0';
     }
 
+    // Fungsi untuk menghapus karakter terakhir dari tampilan kalkulator
     function deleteLastChar() {
       var display = document.querySelector(".display-calculation");
-      if (display.value != '0') {
+      if (display.value.length === 1) {
+        display.value = '0';
+      } else if (display.value != '0') {
         display.value = display.value.slice(0, -1);
       }
     }
 
+    // Fungsi untuk menghitung persentase dari nilai terakhir pada tampilan kalkulator
     function calculatePercentage() {
       var display = document.querySelector(".display-calculation");
       var expression = display.value;
       var lastChar = display.value.slice(-1);
 
+      // Pencegahan perhitungan ketika karakter terakhir adalah operator
       if (lastChar === '+' || lastChar === '-' || lastChar === '*' || lastChar === '/' || lastChar === '.') {
         return;
       }
 
+      // Perhitungan dengan mengambil nilai terakhir dari tampilan
       var numbers = expression.split(/[\+\-\*\/]/);
       var lastNumber = parseFloat(numbers[numbers.length - 1]);
       var percentage = lastNumber / 100;
@@ -141,19 +252,20 @@
       display.value = expression.substring(0, expression.lastIndexOf(lastNumber)) + percentage;
     }
 
-    function calculate() {
+    // Fungsi untuk menghitung hasil dari ekspresi matematika pada tampilan kalkulator
+    function calculateValidation() {
       var display = document.querySelector(".display-calculation");
       var expression = display.value;
-
-      // Add "0" if expression ends with an operator
       var lastChar = expression.slice(-1);
+
+      // Penambahan nilai nol setelah operator jika user tidak menginputkan nilai setelah operator
       if (lastChar === '+' || lastChar === '-' || lastChar === '*' || lastChar === '/') {
         expression += '0';
       }
 
+      // Pencegahan error tak diketahui sebelum masuk server-side
       var result;
       try {
-        // Use eval to calculate result
         result = eval(expression);
       } catch (error) {
         result = "Error";
