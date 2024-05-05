@@ -119,7 +119,7 @@
               }
 
               // Menampilkan hasil perhitungan
-              echo "<input id='result' class='display-calculation' value='Result: $result' readonly>";
+              echo "<input id='result' class='display-calculation' value='$result' readonly>";
             } else {
               echo "<p>No calculation found!</p>";
             }
