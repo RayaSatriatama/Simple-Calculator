@@ -110,8 +110,8 @@
               // Ekspresi yang akan dievaluasi
               $expression = $_POST['display'];
 
-              // Mengecek apakah ekspresi mengandung pembagian dengan nol
-              if (strpos($expression, '/0') !== false) {
+              // Mengecek apakah ekspresi mengandung pembagian dengan nol yang tidak valid
+              if (preg_match('/\/0(\.0*($|\D))/ ', $expression)) {
                 $result = "Undefined";
               } else {
                 // Menghitung hasil dari ekspresi matematika
