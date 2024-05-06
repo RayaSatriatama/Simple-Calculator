@@ -111,7 +111,7 @@
               $expression = $_POST['display'];
 
               // Mengecek apakah ekspresi mengandung pembagian dengan nol yang tidak valid
-              if (preg_match('/\/0(\.0*($|\D))/ ', $expression)) {
+              if (preg_match('/\/0+(\.0*)?($|[^0-9\.])/ ', $expression)) {
                 $result = "Undefined";
               } else {
                 // Menghitung hasil dari ekspresi matematika
