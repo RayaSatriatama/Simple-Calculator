@@ -15,116 +15,40 @@
         <div class="display">
           <input type="text" name="display" class="display-calculation" value="<?php echo isset($_POST['display']) ? htmlspecialchars($_POST['display']) : '0'; ?>">
           <?php
-          // Fungsi untuk mengevaluasi ekspresi matematika yang diberikan
-          function evaluateExpression($expression)
+          // Fungsi untuk menghitung
+          function safeEval($expression)
           {
-            // Menghapus spasi yang tidak perlu dari ekspresi
-            $expression = str_replace(' ', '', $expression);
+            // Membersihkan ekspresi masukan
+            $expression = preg_replace('/[^0-9\+\-\*\/\.\(\)]/', '', $expression);
 
-            // Inisialisasi array untuk menyimpan angka dan operator
-            $numbers = [];
-            $operators = [];
+            // Mengecek pola pembagian dengan nol
+            if (preg_match('/\/0+(\.0*)?($|[^0-9\.])/', $expression)) {
+              return "Undefined";
+            }
 
-            // Mendapatkan panjang ekspresi
-            $length = strlen($expression);
-            $i = 0;
+            // Pencegakan pemeriksaan sintaks dasar
+            if (preg_match('/^[\/\*\+]/', $expression) || preg_match('/[\+\-\*\/]{2,}/', $expression)) {
+              return "Syntax Error";
+            }
 
-            // Iterasi melalui ekspresi untuk mengevaluasi setiap karakter
-            while ($i < $length) {
-              // Jika karakter adalah angka atau karakter khusus seperti titik atau eksponen
-              if (is_numeric($expression[$i]) || $expression[$i] === '.' || $expression[$i] === 'e' || $expression[$i] === 'E') {
-                $num = '';
-                $hasExponentSign = false;
-
-                // Membaca angka dan menggabungkan karakter untuk membentuk angka tunggal (contoh: 1-8e => 0.0000001)
-                while ($i < $length && (is_numeric($expression[$i]) || $expression[$i] === '.' || $expression[$i] === 'e' || $expression[$i] === 'E' ||
-                  ($hasExponentSign && ($expression[$i] === '+' || $expression[$i] === '-')))) {
-                  if ($expression[$i] === 'e' || $expression[$i] === 'E') {
-                    $hasExponentSign = true;
-                  } else if ($hasExponentSign && (is_numeric($expression[$i]) || $expression[$i] === '+' || $expression[$i] === '-')) {
-                    $hasExponentSign = false;
-                  }
-                  $num .= $expression[$i++];
-                }
-                // Menambahkan angka ke dalam array setelah diubah menjadi float
-                array_push($numbers, floatval($num));
-                $i--;
+            // Mengevaluasi ekspresi menggunakan eval
+            try {
+              $result = eval('return ' . $expression . ';');
+              if ($result === FALSE) {
+                throw new Exception("Invalid expression");
               }
-              // Jika karakter adalah operator
-              else if (in_array($expression[$i], ['+', '-', '*', '/'])) {
-                // Menangani operator berdasarkan prioritasnya
-                while (!empty($operators) && hasPrecedence($expression[$i], end($operators))) {
-                  performCalculation($numbers, array_pop($operators));
-                }
-                array_push($operators, $expression[$i]);
-              }
-              $i++;
-            }
-
-            // Menangani sisa operator dan operand yang tersisa
-            while (!empty($operators)) {
-              performCalculation($numbers, array_pop($operators));
-            }
-
-            // Mengembalikan hasil akhir dari ekspresi matematika
-            return array_pop($numbers);
-          }
-
-          // Fungsi untuk mengecek tingkat presedensi operator matematika
-          function hasPrecedence($op1, $op2)
-          {
-            if (in_array($op2, ['+', '-']) && in_array($op1, ['*', '/'])) {
-              return false;
-            }
-            return true;
-          }
-
-          // Fungsi untuk melakukan perhitungan sesuai dengan operator
-          function performCalculation(&$numbers, $operator)
-          {
-            if (count($numbers) < 2) {
-              throw new RuntimeException("Insufficient values in the expression.");
-            }
-            $right = array_pop($numbers);
-            $left = array_pop($numbers);
-
-            switch ($operator) {
-              case '+':
-                array_push($numbers, $left + $right);
-                break;
-              case '-':
-                array_push($numbers, $left - $right);
-                break;
-              case '*':
-                array_push($numbers, $left * $right);
-                break;
-              case '/':
-                if ($right == 0) throw new RuntimeException("Division by zero.");
-                array_push($numbers, $left / $right);
-                break;
+              return $result;
+            } catch (Exception $e) {
+              return "Error: " . $e->getMessage();
             }
           }
 
-          if (isset($_POST['submit'])) {
-            if (isset($_POST['display'])) {
-              // Ekspresi yang akan dievaluasi
-              $expression = $_POST['display'];
-
-              // Mengecek apakah ekspresi mengandung pembagian dengan nol yang tidak valid
-              if (preg_match('/\/0+(\.0*)?($|[^0-9\.])/ ', $expression)) {
-                $result = "Undefined";
-              } else {
-                // Menghitung hasil dari ekspresi matematika
-                $result = evaluateExpression($expression);
-              }
-
-              // Menampilkan hasil perhitungan
-              echo "<input id='result' class='display-calculation' value='$result' readonly>";
-            } else {
-              echo "<p>No calculation found!</p>";
-            }
+          // Mengecek apakah formulir telah disubmit
+          if (isset($_POST['submit']) && isset($_POST['display'])) {
+            $expression = $_POST['display'];
+            $result = safeEval($expression);
+            echo "<input type='text' class='display-calculation' value='" . htmlspecialchars($result) . "' readonly>";
           }
-
           ?>
         </div>
         <div>
