@@ -15,23 +15,28 @@
         <div class="display">
           <input type="text" name="display" class="display-calculation" value="<?php echo isset($_POST['display']) ? htmlspecialchars($_POST['display']) : '0'; ?>">
           <?php
-          // Fungsi untuk menghitung
+          // Fungsi untuk kalkulasi ekspresi
           function safeEval($expression)
           {
-            // Membersihkan ekspresi masukan
-            $expression = preg_replace('/[^0-9\+\-\*\/\.\(\)]/', '', $expression);
+            // Mengizinka ekspresi dan notasi ilmiah
+            $expression = preg_replace('/[^0-9\+\-\*\/\.\(\)eE]/', '', $expression);
 
-            // Mengecek pola pembagian dengan nol
+            // Ubah notasi ilmiah menjadi bentuk desimal jika perlu sebelum evaluasi
+            $expression = preg_replace_callback('/(\d+(\.\d+)?)[eE]([+-]?\d+)/', function ($matches) {
+              return (string)((float)$matches[1] * pow(10, (int)$matches[3]));
+            }, $expression);
+
+            // Periksa pola pembagian dengan nol
             if (preg_match('/\/0+(\.0*)?($|[^0-9\.])/', $expression)) {
               return "Undefined";
             }
 
-            // Pencegakan pemeriksaan sintaks dasar
+            // Pemeriksaan sintaks dasar untuk mencegah masalah umum
             if (preg_match('/^[\/\*\+]/', $expression) || preg_match('/[\+\-\*\/]{2,}/', $expression)) {
               return "Syntax Error";
             }
 
-            // Mengevaluasi ekspresi menggunakan eval
+            // Evaluasi ekspresi menggunakan eval
             try {
               $result = eval('return ' . $expression . ';');
               if ($result === FALSE) {
@@ -157,24 +162,35 @@
       }
     }
 
-    // Fungsi untuk menghitung persentase dari nilai terakhir pada tampilan kalkulator
     function calculatePercentage() {
       var display = document.querySelector(".display-calculation");
       var expression = display.value;
       var lastChar = display.value.slice(-1);
 
       // Pencegahan perhitungan ketika karakter terakhir adalah operator
-      if (lastChar === '+' || lastChar === '-' || lastChar === '*' || lastChar === '/' || lastChar === '.') {
+      if (['+', '-', '*', '/', '.'].includes(lastChar)) {
         return;
       }
 
-      // Perhitungan dengan mengambil nilai terakhir dari tampilan
-      var numbers = expression.split(/[\+\-\*\/]/);
-      var lastNumber = parseFloat(numbers[numbers.length - 1]);
-      var percentage = lastNumber / 100;
+      // Menggunakan regex untuk menemukan angka terakhir dalam ekspresi
+      var matches = expression.match(/(?:[\+\-\*\/]|^)(-?\d*\.?\d+(?:e[+-]?\d+)?)$/);
+      if (matches) {
+        var lastNumber = matches[1]; // Ambil angka terakhir yang ditemukan
+        var index = matches.index + matches[0].length - lastNumber.length; // Temukan lokasi awal angka terakhir
 
-      display.value = expression.substring(0, expression.lastIndexOf(lastNumber)) + percentage;
+        // Menghitung persentase
+        var percentage = parseFloat(lastNumber) / 100;
+
+        // Untuk angka dalam format eksponensial, gunakan toExponential untuk menghindari manipulasi eksponen yang salah
+        if (lastNumber.includes('e')) {
+          percentage = percentage.toExponential();
+        }
+
+        // Mengganti angka terakhir dengan hasil persentasenya dalam ekspresi
+        display.value = expression.substring(0, index) + percentage + expression.substring(index + lastNumber.length);
+      }
     }
+
 
     // Fungsi untuk menghitung hasil dari ekspresi matematika pada tampilan kalkulator
     function calculateValidation() {
