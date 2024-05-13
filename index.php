@@ -18,7 +18,7 @@
           // Fungsi untuk kalkulasi ekspresi
           function safeEval($expression)
           {
-            // Mengizinka ekspresi dan notasi ilmiah
+            // Mengizinkan ekspresi dan notasi ilmiah
             $expression = preg_replace('/[^0-9\+\-\*\/\.\(\)eE]/', '', $expression);
 
             // Ubah notasi ilmiah menjadi bentuk desimal jika perlu sebelum evaluasi
